@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(ReactiveLitepp
+project(reactiveLitepp
     VERSION 1.0.0
     DESCRIPTION "Type-safe reactive programming inspired by INotifyPropertyChanged"
     HOMEPAGE_URL "https://github.com/herve-er/ReactiveLitepp"
