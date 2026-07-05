@@ -198,29 +198,31 @@ public:
 	// All properties require backing fields
 	std::string _firstName;
 
-	Property<std::string> FirstName = Property<std::string>(
+	// Simple backing-field properties: MakeProperty both builds and registers
+	// them, so they are queryable via GetProperty() without any extra step.
+	Property<std::string> FirstName = MakeProperty<&Person::FirstName>(
 		[this]() { return _firstName; },
 		[this](std::string& value) {
 			SetPropertyValueAndNotify<&Person::FirstName>(_firstName, value);
 		}
 	);
 
-	Property<std::string> LastName = Property<std::string>(
+	Property<std::string> LastName = MakeProperty<&Person::LastName>(
 		[this]() { return _lastName; },
 		[this](std::string& value) {
 			SetPropertyValueAndNotify<&Person::LastName>(_lastName, value);
 		}
 	);
 
-	Property<int> Age = Property<int>(
+	Property<int> Age = MakeProperty<&Person::Age>(
 		[this]() { return _age; },
 		[this](int& value) {
 			SetPropertyValueAndNotify<&Person::Age>(_age, value);
 		}
 	);
 
-	// Property with custom logic and notifications
-	Property<std::string> Email = Property<std::string>(
+	// Custom setter logic (validation) — registration is independent of it.
+	Property<std::string> Email = MakeProperty<&Person::Email>(
 		[this]() { return _email; },
 		[this](std::string& value) {
 			if (value.find('@') == std::string::npos) {
@@ -231,13 +233,18 @@ public:
 		}
 	);
 
-	// Property with validation and notifications
-	Property<double> Salary = Property<double>(
+	// Custom setter logic (reject negative).
+	Property<double> Salary = MakeProperty<&Person::Salary>(
 		[this]() { return _salary; },
 		[this](double& newValue) {
 			if (newValue < 0) return;  // Reject negative
 			SetPropertyValueAndNotify<&Person::Salary>(_salary, newValue);
 		}
+	);
+
+	// Read-only, computed from other fields — getter only, still discoverable.
+	ReadonlyProperty<std::string> FullName = MakeReadonlyProperty<&Person::FullName>(
+		[this]() { return _firstName + " " + _lastName; }
 	);
 
 	// Constructor to initialize backing fields
@@ -309,6 +316,56 @@ void DemonstrateObservableObject() {
 	person.SetFirstName("Jane");
 	person.LastName = "Smith";
 	person.Salary = 80000.0;
+
+	// 3.5 Retrieve any property's value by name (no knowledge of the concrete type)
+	std::cout << "\n--- 3.5 GetProperty by Name ---\n";
+	if (auto age = person.GetProperty<int>("Age")) {
+		std::cout << "  GetProperty<int>(\"Age\") = " << *age << "\n";
+	}
+	// A read-only, computed property is retrievable the same way.
+	if (auto fullName = person.GetProperty<std::string>("FullName")) {
+		std::cout << "  GetProperty<std::string>(\"FullName\") = " << *fullName << "\n";
+	}
+	// Wrong type or unknown name yields an empty optional.
+	if (!person.GetProperty<double>("Age")) {
+		std::cout << "  GetProperty<double>(\"Age\") = <empty> (type mismatch)\n";
+	}
+	if (!person.GetProperty<int>("Unknown")) {
+		std::cout << "  GetProperty<int>(\"Unknown\") = <empty> (no such property)\n";
+	}
+
+	// Type-erased retrieval: get the value as std::any without naming the type.
+	std::any ageAny = person.GetProperty("Age");
+	if (ageAny.has_value()) {
+		std::cout << "  GetProperty(\"Age\") -> std::any holding "
+			<< ageAny.type().name() << " = " << std::any_cast<int>(ageAny) << "\n";
+	}
+
+	// Typical use: read the changed property straight from a PropertyChanged handler.
+	auto byNameSub = person.PropertyChanged.Subscribe(
+		[](ObservableObject& obj, PropertyChangedArgs args) {
+			if (auto age = obj.GetProperty<int>(args.PropertyName())) {
+				std::cout << "  [BY NAME] " << args.PropertyName() << " is now " << *age << "\n";
+			}
+		});
+	person.Age = 41;
+
+	// 3.6 Set any property by name, with a type-erased value.
+	std::cout << "\n--- 3.6 SetProperty by Name ---\n";
+	auto describe = [](SetPropertyResult r) {
+		switch (r) {
+		case SetPropertyResult::Success:      return "Success";
+		case SetPropertyResult::NotFound:     return "NotFound";
+		case SetPropertyResult::TypeMismatch: return "TypeMismatch";
+		case SetPropertyResult::ReadOnly:     return "ReadOnly";
+		}
+		return "?";
+	};
+	std::cout << "  SetProperty(\"Age\", 50)        -> " << describe(person.SetProperty("Age", std::any(50))) << "\n";
+	std::cout << "  Age is now " << person.Age << "\n";
+	std::cout << "  SetProperty(\"Age\", 3.14)      -> " << describe(person.SetProperty("Age", std::any(3.14))) << " (type mismatch)\n";
+	std::cout << "  SetProperty(\"Nope\", 1)        -> " << describe(person.SetProperty("Nope", std::any(1))) << "\n";
+	std::cout << "  SetProperty(\"FullName\", ...)  -> " << describe(person.SetProperty("FullName", std::any(std::string("x")))) << " (computed/read-only)\n";
 
 	std::cout << "\n  Final state: " << person.GetFullName()
 		<< ", Age: " << person.Age
@@ -425,21 +482,21 @@ void DemonstrateObservableCollection() {
 
 class ShoppingCart : public ObservableObject {
 public:
-	Property<int> ItemCount = Property<int>(
+	Property<int> ItemCount = MakeProperty<&ShoppingCart::ItemCount>(
 		[this]() { return _itemCount; },
 		[this](int& value) {
 			SetPropertyValueAndNotify<&ShoppingCart::ItemCount>(_itemCount, value);
 		}
 	);
 
-	Property<double> TotalPrice = Property<double>(
+	Property<double> TotalPrice = MakeProperty<&ShoppingCart::TotalPrice>(
 		[this]() { return _totalPrice; },
 		[this](double& value) {
 			SetPropertyValueAndNotify<&ShoppingCart::TotalPrice>(_totalPrice, value);
 		}
 	);
 
-	Property<bool> HasDiscount = Property<bool>(
+	Property<bool> HasDiscount = MakeProperty<&ShoppingCart::HasDiscount>(
 		[this]() { return _hasDiscount; },
 		[this](bool& value) {
 			if (SetPropertyValueAndNotify<&ShoppingCart::HasDiscount>(_hasDiscount, value)) {
