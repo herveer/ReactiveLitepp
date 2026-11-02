@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(reactiveLitepp
-    VERSION 1.0.0
+project(ReactiveLitepp
+    VERSION 1.2.1
     DESCRIPTION "Type-safe reactive programming inspired by INotifyPropertyChanged"
     HOMEPAGE_URL "https://github.com/herve-er/ReactiveLitepp"
     LANGUAGES CXX
@@ -46,31 +46,34 @@ install(TARGETS ReactiveLitepp
 # --------------------------------------------
 include(CMakePackageConfigHelpers)
 
-# Package install directory (vcpkg style)
-set(CONFIG_INSTALL_DIR share/${PROJECT_NAME})
+# The package's files carry ONE spelling, the all-lowercase one find_package(ReactiveLitepp)
+# looks for on a case-sensitive file system (<lowercase name>-config.cmake), whatever the
+# project is called - so it installs the same on Windows, Linux and macOS, with or without vcpkg.
+set(PACKAGE_FILE_NAME reactivelitepp)
+set(CONFIG_INSTALL_DIR share/${PACKAGE_FILE_NAME})
 
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_FILE_NAME}-config-version.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
 configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}-config.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PACKAGE_FILE_NAME}-config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_FILE_NAME}-config.cmake"
     INSTALL_DESTINATION ${CONFIG_INSTALL_DIR}
 )
 
 # Install config + version files
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_FILE_NAME}-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_FILE_NAME}-config-version.cmake"
     DESTINATION ${CONFIG_INSTALL_DIR}
 )
 
 # Install exported targets file
 install(EXPORT ReactiveLiteppTargets
-    FILE ${PROJECT_NAME}-targets.cmake
+    FILE ${PACKAGE_FILE_NAME}-targets.cmake
     NAMESPACE ReactiveLitepp::
     DESTINATION ${CONFIG_INSTALL_DIR}
 )
